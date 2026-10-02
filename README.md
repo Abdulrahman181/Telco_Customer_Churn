@@ -1,51 +1,26 @@
-# **Telecom Customer Churn Prediction**
-This project aims to analyze and predict customer churn in the telecom industry. The project involves data analysis, preprocessing, building machine learning models, and creating an interactive dashboard for visualizing insights. The final model is deployed using Streamlit to make the results accessible and interactive for stakeholders.
+# Telecom Customer Churn Prediction
 
-## **Project Overview**
-Customer churn prediction is crucial for telecom companies to identify customers likely to leave their services, allowing for retention strategies. In this project, we used historical customer data, performed data cleaning and analysis, built predictive models, and deployed an interactive dashboard.
+This repository contains a Jupyter notebook for churn analysis/modeling and a Streamlit interface (`main.py`) that was written to load pre-trained encoders, a scaler, and classification models.
 
+## Repository status and limitations
 
+The checked-in snapshot does **not** contain the customer dataset, a dependency lock/requirements file, or the `Deployment_Churn` model-artifact directory referenced by the app. The app therefore cannot make predictions from this checkout. It now reports the missing model assets instead of failing with a file-not-found traceback. No model results or performance metrics have been validated as part of this repository snapshot.
 
-## **Project Steps**
-#### 1- Data Analysis and Preprocessing:
+The notebook may require an external dataset and a compatible Python environment. Obtain data through an authorized source and verify the notebook's input paths and dependencies before running it. This repository does not claim a reproducible environment because the training dependency versions and saved model files are not present.
 
-- Cleaned and processed data for missing values, outliers, and feature scaling.
-- Conducted exploratory data analysis (EDA) to uncover trends and patterns.
-  
-#### 2- Model Building:
+## Enabling the Streamlit app
 
-- Split the data into training and testing sets.
-- Built and evaluated several classification models (e.g., Logistic Regression, Random Forest, XGBoost).
-- Selected the best-performing model based on accuracy, precision, recall, and F1 score.
+To enable inference, provide the complete artifact set at the paths expected by `main.py`:
 
-#### 3- Model Deployment:
+- `Deployment_Churn/Encoding/InternetService_le.pkl`
+- `Deployment_Churn/Encoding/PaymentMethod_le.pkl`
+- `Deployment_Churn/Encoding/tenure_group_le.pkl`
+- `Deployment_Churn/Encoding/Contract_oe.pkl`
+- `Deployment_Churn/Scaling/scaler.pkl`
+- `Deployment_Churn/Models/` containing the nine model files named in `main.py`
 
-- Developed a Streamlit dashboard for visualizing churn predictions and insights.
-- Provided interactive features for stakeholders to explore data and prediction results.
+Install the exact compatible Python packages used to create those artifacts before starting the app with `streamlit run main.py`. The required versions cannot be inferred safely from the files currently available. **Only load pickle artifacts from a trusted, verified source**: deserializing an untrusted pickle can execute arbitrary code. Keep private data and model artifacts out of public commits unless their disclosure is intentional and approved.
 
+## Customer-input handling
 
-## **Features**
-#### 1- Data Analysis:
-- Visualize customer demographics, usage patterns, and churn rates.
-  
-#### 2- Model Predictions:
-- Predict churn probability for individual customers.
-- Explore key features influencing customer churn.
-
-#### 3- Interactive Dashboard:
-- Simple and interactive interface for users to upload new customer data and get predictions.
-  
-## **Programming Languages and Tools**
-#### Programming Languages:
-
-- Python
-#### Frameworks/Tools:
-
-- Scikit-learn: For implementing machine learning models.
-- Pandas & NumPy: For data manipulation and analysis.
-- Matplotlib, Seaborn & Plotly: For creating visualizations.
-- Streamlit: For deploying interactive web applications.
-- Power BI: For creating interactive dashboards.
-- GitHub: For hosting the Streamlit page.
-- Kaggle: For data collection.
-- Canva: For presentation design.
+The interface uses the attributes entered in a prediction request to display predictions. It does not retain a history of customer inputs or provide a button to display accumulated records. This is not a substitute for reviewing the privacy and security configuration of any public deployment.

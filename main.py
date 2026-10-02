@@ -1,27 +1,62 @@
 import numpy as np
 import pickle as pkl
 import streamlit as st
-import pandas as pd
 from collections import Counter
+from pathlib import Path
+
+# Resolve artifacts relative to this file so Streamlit works from any working directory.
+APP_DIR = Path(__file__).resolve().parent
+ARTIFACTS = (
+    'Deployment_Churn/Encoding/InternetService_le.pkl',
+    'Deployment_Churn/Encoding/PaymentMethod_le.pkl',
+    'Deployment_Churn/Encoding/tenure_group_le.pkl',
+    'Deployment_Churn/Encoding/Contract_oe.pkl',
+    'Deployment_Churn/Scaling/scaler.pkl',
+    'Deployment_Churn/Models/Decision Tree.pkl',
+    'Deployment_Churn/Models/LogisticRegression.pkl',
+    'Deployment_Churn/Models/SVC.pkl',
+    'Deployment_Churn/Models/KNN.pkl',
+    'Deployment_Churn/Models/RandomForest.pkl',
+    'Deployment_Churn/Models/GradientBoosting.pkl',
+    'Deployment_Churn/Models/XGBoost.pkl',
+    'Deployment_Churn/Models/AdaBoost.pkl',
+    'Deployment_Churn/Models/Stacking.pkl',
+)
+
+st.set_page_config(page_title="Customer Churn Prediction", page_icon="📉", layout="wide")
+missing_artifacts = [path for path in ARTIFACTS if not (APP_DIR / path).is_file()]
+if missing_artifacts:
+    st.error(
+        "The trained model artifacts required by this app are not included in this repository. "
+        "Provide the complete, trusted Deployment_Churn artifact set to enable predictions."
+    )
+    st.stop()
+
+
+def load_artifact(relative_path):
+    # Only load trusted artifacts; pickle can execute code during deserialization.
+    with (APP_DIR / relative_path).open('rb') as artifact_file:
+        return pkl.load(artifact_file)
+
 
 # Load encoders
-Internetservice_le = pkl.load(open('Deployment_Churn/Encoding/InternetService_le.pkl', 'rb'))
-Paymentmethod_le = pkl.load(open('Deployment_Churn/Encoding/PaymentMethod_le.pkl', 'rb'))
-Tenure_le = pkl.load(open('Deployment_Churn/Encoding/tenure_group_le.pkl', 'rb'))
-Contract_Oe = pkl.load(open('Deployment_Churn/Encoding/Contract_oe.pkl', 'rb'))
+Internetservice_le = load_artifact('Deployment_Churn/Encoding/InternetService_le.pkl')
+Paymentmethod_le = load_artifact('Deployment_Churn/Encoding/PaymentMethod_le.pkl')
+Tenure_le = load_artifact('Deployment_Churn/Encoding/tenure_group_le.pkl')
+Contract_Oe = load_artifact('Deployment_Churn/Encoding/Contract_oe.pkl')
 
 # Load scaler and models
-scaler = pkl.load(open('Deployment_Churn/Scaling/scaler.pkl', 'rb'))
+scaler = load_artifact('Deployment_Churn/Scaling/scaler.pkl')
 models = {
-    'Decision Tree': pkl.load(open('Deployment_Churn/Models/Decision Tree.pkl', 'rb')),
-    'Logistic Regression': pkl.load(open('Deployment_Churn/Models/LogisticRegression.pkl', 'rb')),
-    'SVC': pkl.load(open('Deployment_Churn/Models/SVC.pkl', 'rb')),
-    'KNN': pkl.load(open('Deployment_Churn/Models/KNN.pkl', 'rb')),
-    'Random Forest': pkl.load(open('Deployment_Churn/Models/RandomForest.pkl', 'rb')),
-    'Gradient Boosting': pkl.load(open('Deployment_Churn/Models/GradientBoosting.pkl', 'rb')),
-    'XGBoost': pkl.load(open('Deployment_Churn/Models/XGBoost.pkl', 'rb')),
-    'AdaBoost': pkl.load(open('Deployment_Churn/Models/AdaBoost.pkl', 'rb')),
-    'Stacking': pkl.load(open('Deployment_Churn/Models/Stacking.pkl', 'rb')),
+    'Decision Tree': load_artifact('Deployment_Churn/Models/Decision Tree.pkl'),
+    'Logistic Regression': load_artifact('Deployment_Churn/Models/LogisticRegression.pkl'),
+    'SVC': load_artifact('Deployment_Churn/Models/SVC.pkl'),
+    'KNN': load_artifact('Deployment_Churn/Models/KNN.pkl'),
+    'Random Forest': load_artifact('Deployment_Churn/Models/RandomForest.pkl'),
+    'Gradient Boosting': load_artifact('Deployment_Churn/Models/GradientBoosting.pkl'),
+    'XGBoost': load_artifact('Deployment_Churn/Models/XGBoost.pkl'),
+    'AdaBoost': load_artifact('Deployment_Churn/Models/AdaBoost.pkl'),
+    'Stacking': load_artifact('Deployment_Churn/Models/Stacking.pkl'),
 }
 
 # Function to predict churn
@@ -36,9 +71,9 @@ def predict_churn(input_data):
 def display_predictions(predictions):
     st.markdown("<h2 style='text-align: center; color: #4A90E2;'>⚜️Prediction Results⚜️</h2>", unsafe_allow_html=True)
     st.markdown("---")
-    
+
     col1, col2 = st.columns([1, 1], gap="large")  # Two equal-width columns
-    
+
     # Split predictions into two parts
     predictions_items = list(predictions.items())
     first_half = predictions_items[:5]
@@ -69,48 +104,7 @@ def display_predictions(predictions):
     else:
         st.markdown(f"""<h1 style='text-align: center;font-size:55px; color: white;'>The Customer Status: <span style='color: #E74C3C;'>{mode_result}😡</span></h1>""", unsafe_allow_html=True)
 
-# Function to save user input in a dictionary
-def save_user_data(gender, SeniorCitizen, Partner, Dependents, tenure, PhoneService,
-                   MultipleLines, InternetService, OnlineSecurity, OnlineBackup,
-                   DeviceProtection, TechSupport, StreamingTV, StreamingMovies,
-                   Contract, PaperlessBilling, PaymentMethod, MonthlyCharges, TotalCharges, prediction):
-    
-    # Create a dictionary with all inputs and the prediction result
-    user_data = {
-        'Gender': gender,
-        'SeniorCitizen': SeniorCitizen,
-        'Partner': Partner,
-        'Dependents': Dependents,
-        'Tenure': tenure,
-        'PhoneService': PhoneService,
-        'MultipleLines': MultipleLines,
-        'InternetService': InternetService,
-        'OnlineSecurity': OnlineSecurity,
-        'OnlineBackup': OnlineBackup,
-        'DeviceProtection': DeviceProtection,
-        'TechSupport': TechSupport,
-        'StreamingTV': StreamingTV,
-        'StreamingMovies': StreamingMovies,
-        'Contract': Contract,
-        'PaperlessBilling': PaperlessBilling,
-        'PaymentMethod': PaymentMethod,
-        'MonthlyCharges': MonthlyCharges,
-        'TotalCharges': TotalCharges,
-        'Prediction': prediction
-    }
-
-    # Save the data in session_state for persistence
-    if 'user_data_list' not in st.session_state:
-        st.session_state['user_data_list'] = []
-    
-    st.session_state['user_data_list'].append(user_data)
-
-# Initialize session state for predictions
-if 'predictions' not in st.session_state:
-    st.session_state['predictions'] = None
-
 # Streamlit UI
-st.set_page_config(page_title="Customer Churn Prediction", page_icon="📉", layout="wide")
 st.title(" 📞Telecom Customer Churn Prediction")
 st.markdown('Predict whether a customer will churn based on various attributes.')
 
@@ -195,20 +189,5 @@ input_data = np.concatenate((input_data1, input_data3), axis=1)
 # Button to trigger prediction and save data
 if st.button("🔍 Predict Churn"):
     predictions = predict_churn(input_data)
-    mode_result = Counter(predictions.values()).most_common(1)[0][0]
-
-    # Save the user's inputs along with the prediction result
-    save_user_data(gender, SeniorCitizen, Partner, Dependents, tenure, PhoneService,
-                   MultipleLines, InternetService, OnlineSecurity, OnlineBackup,
-                   DeviceProtection, TechSupport, StreamingTV, StreamingMovies,
-                   Contract, PaperlessBilling, PaymentMethod, MonthlyCharges, TotalCharges, mode_result)
-
     # Display the predictions
     display_predictions(predictions)
-
-# Optional: Display saved data
-if st.button("Show All User Data"):
-    if 'user_data_list' in st.session_state and st.session_state['user_data_list']:
-        st.write(pd.DataFrame(st.session_state['user_data_list']))
-    else:
-        st.write("No user data saved yet.")
