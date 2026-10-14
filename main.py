@@ -1,214 +1,262 @@
-import numpy as np
-import pickle as pkl
-import streamlit as st
-import pandas as pd
-from collections import Counter
+"""Streamlit application for the Telco customer-churn model artifacts.
 
-# Load encoders
-Internetservice_le = pkl.load(open('Deployment_Churn/Encoding/InternetService_le.pkl', 'rb'))
-Paymentmethod_le = pkl.load(open('Deployment_Churn/Encoding/PaymentMethod_le.pkl', 'rb'))
-Tenure_le = pkl.load(open('Deployment_Churn/Encoding/tenure_group_le.pkl', 'rb'))
-Contract_Oe = pkl.load(open('Deployment_Churn/Encoding/Contract_oe.pkl', 'rb'))
-
-# Load scaler and models
-scaler = pkl.load(open('Deployment_Churn/Scaling/scaler.pkl', 'rb'))
-models = {
-    'Decision Tree': pkl.load(open('Deployment_Churn/Models/Decision Tree.pkl', 'rb')),
-    'Logistic Regression': pkl.load(open('Deployment_Churn/Models/LogisticRegression.pkl', 'rb')),
-    'SVC': pkl.load(open('Deployment_Churn/Models/SVC.pkl', 'rb')),
-    'KNN': pkl.load(open('Deployment_Churn/Models/KNN.pkl', 'rb')),
-    'Random Forest': pkl.load(open('Deployment_Churn/Models/RandomForest.pkl', 'rb')),
-    'Gradient Boosting': pkl.load(open('Deployment_Churn/Models/GradientBoosting.pkl', 'rb')),
-    'XGBoost': pkl.load(open('Deployment_Churn/Models/XGBoost.pkl', 'rb')),
-    'AdaBoost': pkl.load(open('Deployment_Churn/Models/AdaBoost.pkl', 'rb')),
-    'Stacking': pkl.load(open('Deployment_Churn/Models/Stacking.pkl', 'rb')),
-}
-
-# Function to predict churn
-def predict_churn(input_data):
-    predictions = {}
-    for name, model in models.items():
-        pred = model.predict(input_data)[0]
-        predictions[name] = "Churn" if pred == 1 else "Not Churn"
-    return predictions
-
-# Function to display predictions with mode highlighted
-def display_predictions(predictions):
-    st.markdown("<h2 style='text-align: center; color: #4A90E2;'>⚜️Prediction Results⚜️</h2>", unsafe_allow_html=True)
-    st.markdown("---")
-    
-    col1, col2 = st.columns([1, 1], gap="large")  # Two equal-width columns
-    
-    # Split predictions into two parts
-    predictions_items = list(predictions.items())
-    first_half = predictions_items[:5]
-    second_half = predictions_items[5:]
-
-    # Display first half in the first column
-    with col1:
-        for model, result in first_half:
-            st.markdown(
-                f"<p style='font-size:15px; text-align: center;'>"
-                f"<b>{model}:</b> <span style='color: #FFA500;'>{result}</span>"
-                f"</p>", unsafe_allow_html=True
-            )
-
-    # Display second half in the second column
-    with col2:
-        for model, result in second_half:
-            st.markdown(
-                f"<p style='font-size:15px; text-align: center;'>"
-                f"<b>{model}:</b> <span style='color: #FFA500;'>{result}</span>"
-                f"</p>", unsafe_allow_html=True
-            )
-
-    # Calculate and display mode in larger font
-    mode_result = Counter(predictions.values()).most_common(1)[0][0]
-    if mode_result == "Not Churn":
-        st.markdown(f"""<h1 style='text-align: center;font-size:55px; color: white;'>The Customer Status: <span style='color: #27AE60;'>{mode_result}✅</span></h1>""", unsafe_allow_html=True)
-    else:
-        st.markdown(f"""<h1 style='text-align: center;font-size:55px; color: white;'>The Customer Status: <span style='color: #E74C3C;'>{mode_result}😡</span></h1>""", unsafe_allow_html=True)
-
-# Function to save user input in a dictionary
-def save_user_data(gender, SeniorCitizen, Partner, Dependents, tenure, PhoneService,
-                   MultipleLines, InternetService, OnlineSecurity, OnlineBackup,
-                   DeviceProtection, TechSupport, StreamingTV, StreamingMovies,
-                   Contract, PaperlessBilling, PaymentMethod, MonthlyCharges, TotalCharges, prediction):
-    
-    # Create a dictionary with all inputs and the prediction result
-    user_data = {
-        'Gender': gender,
-        'SeniorCitizen': SeniorCitizen,
-        'Partner': Partner,
-        'Dependents': Dependents,
-        'Tenure': tenure,
-        'PhoneService': PhoneService,
-        'MultipleLines': MultipleLines,
-        'InternetService': InternetService,
-        'OnlineSecurity': OnlineSecurity,
-        'OnlineBackup': OnlineBackup,
-        'DeviceProtection': DeviceProtection,
-        'TechSupport': TechSupport,
-        'StreamingTV': StreamingTV,
-        'StreamingMovies': StreamingMovies,
-        'Contract': Contract,
-        'PaperlessBilling': PaperlessBilling,
-        'PaymentMethod': PaymentMethod,
-        'MonthlyCharges': MonthlyCharges,
-        'TotalCharges': TotalCharges,
-        'Prediction': prediction
-    }
-
-    # Save the data in session_state for persistence
-    if 'user_data_list' not in st.session_state:
-        st.session_state['user_data_list'] = []
-    
-    st.session_state['user_data_list'].append(user_data)
-
-# Initialize session state for predictions
-if 'predictions' not in st.session_state:
-    st.session_state['predictions'] = None
-
-# Streamlit UI
-st.set_page_config(page_title="Customer Churn Prediction", page_icon="📉", layout="wide")
-st.title(" 📞Telecom Customer Churn Prediction")
-st.markdown('Predict whether a customer will churn based on various attributes.')
-
-# Photo
-page_bg_img = """
-<style>
-[data-testid="stAppViewContainer"] {
-    background-image: url("https://images.pexels.com/photos/19683578/pexels-photo-19683578/free-photo-of-analog-telephone-in-sunlight.jpeg?auto=compress&cs=tinysrgb&w=600");
-    background-size: cover;
-    background-position: center;
-    background-repeat: no-repeat;
-    background-attachment: fixed;
-}
-</style>
+The repository intentionally does not contain trained models or encoders.  The
+application therefore validates the artifact directory before rendering a
+prediction form and never silently creates or downloads replacements.
 """
 
-st.markdown(page_bg_img, unsafe_allow_html=True)
+from __future__ import annotations
 
-# Input Form
-st.markdown("---")
-st.subheader("📝 Enter Customer Attributes:")
+import pickle
+from collections import Counter
+from pathlib import Path
+from typing import Any
 
-c1, c2, c3 = st.columns(3)
-with c1:
-    gender = st.selectbox("👥 Gender", options=['Male', 'Female'])
-    SeniorCitizen = st.selectbox("🎖️ Senior Citizen", options=['Yes', 'No'])
-    Partner = st.selectbox("💍 Partner", options=['Yes', 'No'])
-    Dependents = st.selectbox("👶 Dependents", options=['Yes', 'No'])
-    tenure = st.number_input("📅 Tenure (months)", min_value=0, value=0)
-    PhoneService = st.selectbox("📞 Phone Service", options=['Yes', 'No'])
+import numpy as np
+import pandas as pd
 
-with c2:
-    MultipleLines = st.selectbox("📶 Multiple Lines", options=['Yes', 'No'])
-    InternetService = st.selectbox("🌐 Internet Service", options=['DSL', 'Fiber optic', 'No'])
-    OnlineSecurity = st.selectbox("🔐 Online Security", options=['Yes', 'No'])
-    OnlineBackup = st.selectbox("💾 Online Backup", options=['Yes', 'No'])
-    DeviceProtection = st.selectbox("🛡️ Device Protection", options=['Yes', 'No'])
-    TechSupport = st.selectbox("🛠️ Tech Support", options=['Yes', 'No'])
-    StreamingTV = st.selectbox("📺 Streaming TV", options=['Yes', 'No'])
-
-with c3:
-    StreamingMovies = st.selectbox("🎥 Streaming Movies", options=['Yes', 'No'])
-    Contract = st.selectbox("📃 Contract", options=['Month-to-month', 'One year', 'Two year'])
-    PaperlessBilling = st.selectbox("📨 Paperless Billing", options=['Yes', 'No'])
-    PaymentMethod = st.selectbox("💳 Payment Method", Paymentmethod_le.classes_)
-    MonthlyCharges = st.number_input("💵 Monthly Charges", min_value=0.0, value=0.0)
-    TotalCharges = st.number_input("💰 Total Charges", min_value=0.0, value=0.0)
-
-# Encoding Input
-gender_encod = 1 if gender == 'Male' else 0
-SeniorCitizen_encod = 1 if SeniorCitizen == 'Yes' else 0
-Partner_encod = 1 if Partner == 'Yes' else 0
-Dependents_encod = 1 if Dependents == 'Yes' else 0
-PhoneService_encod = 1 if PhoneService == 'Yes' else 0
-MultipleLines_encod = 1 if MultipleLines == 'Yes' else 0
-InternetService_encod = Internetservice_le.transform([InternetService])[0]
-OnlineSecurity_encod = 1 if OnlineSecurity == 'Yes' else 0
-OnlineBackup_encod = 1 if OnlineBackup == 'Yes' else 0
-DeviceProtection_encod = 1 if DeviceProtection == 'Yes' else 0
-TechSupport_encod = 1 if TechSupport == 'Yes' else 0
-StreamingTV_encod = 1 if StreamingTV == 'Yes' else 0
-StreamingMovies_encod = 1 if StreamingMovies == 'Yes' else 0
-Contract_encod = Contract_Oe.transform([[Contract]])[0][0]
-PaperlessBilling_encod = 1 if PaperlessBilling == 'Yes' else 0
-PaymentMethod_encod = Paymentmethod_le.transform([PaymentMethod])[0]
-
-# Create input data array
-input_data1 = np.array([[ SeniorCitizen_encod, Partner_encod, Dependents_encod
-                        , PhoneService_encod, MultipleLines_encod, InternetService_encod,
-                        OnlineSecurity_encod, OnlineBackup_encod, DeviceProtection_encod,
-                        TechSupport_encod, StreamingTV_encod, StreamingMovies_encod,
-                        Contract_encod, PaperlessBilling_encod, PaymentMethod_encod
-                        ]])
-input_data2 = np.array([[MonthlyCharges, TotalCharges, tenure]])
-# Scale input data
-input_data3 = scaler.transform(input_data2)
-input_data = np.concatenate((input_data1, input_data3), axis=1)
+try:  # Keep static checks and the artifact validator usable without Streamlit.
+    import streamlit as st
+except ModuleNotFoundError:  # pragma: no cover - exercised in deployment only.
+    st = None  # type: ignore[assignment]
 
 
+ARTIFACT_ROOT = Path("Deployment_Churn")
+ENCODER_FILES = {
+    "internet_service": Path("Encoding/InternetService_le.pkl"),
+    "payment_method": Path("Encoding/PaymentMethod_le.pkl"),
+    "contract": Path("Encoding/Contract_oe.pkl"),
+}
+SCALER_FILE = Path("Scaling/scaler.pkl")
+MODEL_FILES = {
+    "Decision Tree": Path("Models/Decision Tree.pkl"),
+    "Logistic Regression": Path("Models/LogisticRegression.pkl"),
+    "SVC": Path("Models/SVC.pkl"),
+    "KNN": Path("Models/KNN.pkl"),
+    "Random Forest": Path("Models/RandomForest.pkl"),
+    "Gradient Boosting": Path("Models/GradientBoosting.pkl"),
+    "XGBoost": Path("Models/XGBoost.pkl"),
+    "AdaBoost": Path("Models/AdaBoost.pkl"),
+    "Stacking": Path("Models/Stacking.pkl"),
+}
+
+# This is the feature order used by the original training notebook after it
+# drops gender and scales the three numeric columns at the end.
+class ArtifactBundle(dict[str, Any]):
+    """Loaded encoders, scaler, and models with a predictable mapping."""
 
 
-# Button to trigger prediction and save data
-if st.button("🔍 Predict Churn"):
-    predictions = predict_churn(input_data)
-    mode_result = Counter(predictions.values()).most_common(1)[0][0]
+def required_artifacts(root: Path) -> list[Path]:
+    """Return every file needed by the dashboard, relative to ``root``."""
+    relative = list(ENCODER_FILES.values()) + [SCALER_FILE] + list(MODEL_FILES.values())
+    return [root / ARTIFACT_ROOT / path for path in relative]
 
-    # Save the user's inputs along with the prediction result
-    save_user_data(gender, SeniorCitizen, Partner, Dependents, tenure, PhoneService,
-                   MultipleLines, InternetService, OnlineSecurity, OnlineBackup,
-                   DeviceProtection, TechSupport, StreamingTV, StreamingMovies,
-                   Contract, PaperlessBilling, PaymentMethod, MonthlyCharges, TotalCharges, mode_result)
 
-    # Display the predictions
-    display_predictions(predictions)
+def missing_artifacts(root: Path | None = None) -> list[Path]:
+    """Return missing artifact paths without attempting to load any pickle."""
+    project_root = (root or Path(__file__).resolve().parent).resolve()
+    return [path for path in required_artifacts(project_root) if not path.is_file()]
 
-# Optional: Display saved data
-if st.button("Show All User Data"):
-    if 'user_data_list' in st.session_state and st.session_state['user_data_list']:
-        st.write(pd.DataFrame(st.session_state['user_data_list']))
-    else:
-        st.write("No user data saved yet.")
+
+def _load_pickle(path: Path) -> Any:
+    """Load a repository-local pickle using a context manager.
+
+    Pickle is executable serialization.  Only load files supplied by a trusted
+    training pipeline; this function deliberately performs no network fetch.
+    """
+    with path.open("rb") as handle:
+        return pickle.load(handle)
+
+
+def load_artifacts(root: Path | None = None) -> ArtifactBundle:
+    """Load all model artifacts or raise an actionable error.
+
+    No fallback model or synthetic artifact is created when files are absent.
+    """
+    project_root = (root or Path(__file__).resolve().parent).resolve()
+    missing = missing_artifacts(project_root)
+    if missing:
+        listed = "\n".join(f"- {path.relative_to(project_root)}" for path in missing)
+        raise FileNotFoundError(
+            "Required model artifacts are missing. Train/export the model first "
+            "and place the trusted files under Deployment_Churn/; missing files:\n"
+            f"{listed}"
+        )
+
+    artifact_root = project_root / ARTIFACT_ROOT
+    encoders = {
+        name: _load_pickle(artifact_root / relative)
+        for name, relative in ENCODER_FILES.items()
+    }
+    scaler = _load_pickle(artifact_root / SCALER_FILE)
+    models = {
+        name: _load_pickle(artifact_root / relative)
+        for name, relative in MODEL_FILES.items()
+    }
+    return ArtifactBundle(encoders=encoders, scaler=scaler, models=models)
+
+
+def _yes_no(value: str) -> int:
+    return int(value == "Yes")
+
+
+def build_input(choices: dict[str, Any], artifacts: ArtifactBundle) -> np.ndarray:
+    """Encode one UI record in the training feature order."""
+    encoders = artifacts["encoders"]
+    # Match the notebook's post-drop column order exactly.  Gender is not in
+    # this list because the training notebook drops it before fitting.
+    encoded = [
+        _yes_no(str(choices["SeniorCitizen"])),
+        _yes_no(str(choices["Partner"])),
+        _yes_no(str(choices["Dependents"])),
+        _yes_no(str(choices["PhoneService"])),
+        _yes_no(str(choices["MultipleLines"])),
+        int(encoders["internet_service"].transform([choices["InternetService"]])[0]),
+        _yes_no(str(choices["OnlineSecurity"])),
+        _yes_no(str(choices["OnlineBackup"])),
+        _yes_no(str(choices["DeviceProtection"])),
+        _yes_no(str(choices["TechSupport"])),
+        _yes_no(str(choices["StreamingTV"])),
+        _yes_no(str(choices["StreamingMovies"])),
+        int(encoders["contract"].transform([[choices["Contract"]]])[0][0]),
+        _yes_no(str(choices["PaperlessBilling"])),
+        int(encoders["payment_method"].transform([choices["PaymentMethod"]])[0]),
+    ]
+    # PaymentMethod is a categorical feature in the original 18-column model;
+    # keep it adjacent to the other encoded categorical values and do not treat
+    # its label as a binary value.
+    encoded[-1] = int(encoders["payment_method"].transform([choices["PaymentMethod"]])[0])
+    numeric = np.asarray(
+        [[choices["MonthlyCharges"], choices["TotalCharges"], choices["tenure"]]],
+        dtype=float,
+    )
+    scaled = artifacts["scaler"].transform(numeric)
+    return np.concatenate((np.asarray([encoded], dtype=float), scaled), axis=1)
+
+
+def predict_churn(models: dict[str, Any], input_data: np.ndarray) -> dict[str, str]:
+    """Return one deterministic class label per model."""
+    if input_data.ndim != 2 or input_data.shape[0] != 1:
+        raise ValueError("input_data must be a 2-D array containing exactly one record")
+    predictions: dict[str, str] = {}
+    for name, model in models.items():
+        prediction = int(model.predict(input_data)[0])
+        predictions[name] = "Churn" if prediction == 1 else "Not Churn"
+    return predictions
+
+
+def save_user_data(choices: dict[str, Any], prediction: str) -> None:
+    """Store only the current session's submitted values in Streamlit state."""
+    if st is None:
+        return
+    record = {**choices, "Prediction": prediction}
+    st.session_state.setdefault("user_data_list", []).append(record)
+
+
+def display_predictions(predictions: dict[str, str]) -> None:
+    """Display individual predictions and a deterministic majority status."""
+    if st is None:
+        return
+    st.subheader("Prediction results")
+    st.dataframe(
+        pd.DataFrame(
+            [{"Model": model, "Prediction": result} for model, result in predictions.items()]
+        ),
+        hide_index=True,
+        use_container_width=True,
+    )
+    majority = Counter(predictions.values()).most_common(1)[0][0]
+    st.success(f"Customer status: {majority}")
+
+
+def _render_form(artifacts: ArtifactBundle) -> dict[str, Any]:
+    """Render the validated input form and return its values."""
+    if st is None:  # pragma: no cover
+        raise RuntimeError("Streamlit is required to render the dashboard")
+    encoders = artifacts["encoders"]
+    with st.form("customer_attributes"):
+        col1, col2, col3 = st.columns(3)
+        with col1:
+            gender = st.selectbox("Gender", ["Male", "Female"])
+            senior = st.selectbox("Senior Citizen", ["Yes", "No"])
+            partner = st.selectbox("Partner", ["Yes", "No"])
+            dependents = st.selectbox("Dependents", ["Yes", "No"])
+            tenure = st.number_input(
+                "Tenure (months)", min_value=0, max_value=120, value=0, step=1
+            )
+            phone = st.selectbox("Phone Service", ["Yes", "No"])
+        with col2:
+            multiple = st.selectbox("Multiple Lines", ["Yes", "No"])
+            internet = st.selectbox("Internet Service", list(encoders["internet_service"].classes_))
+            security = st.selectbox("Online Security", ["Yes", "No"])
+            backup = st.selectbox("Online Backup", ["Yes", "No"])
+            device = st.selectbox("Device Protection", ["Yes", "No"])
+            support = st.selectbox("Tech Support", ["Yes", "No"])
+            tv = st.selectbox("Streaming TV", ["Yes", "No"])
+        with col3:
+            movies = st.selectbox("Streaming Movies", ["Yes", "No"])
+            contract = st.selectbox("Contract", ["Month-to-month", "One year", "Two year"])
+            paperless = st.selectbox("Paperless Billing", ["Yes", "No"])
+            payment = st.selectbox("Payment Method", list(encoders["payment_method"].classes_))
+            monthly = st.number_input("Monthly Charges", min_value=0.0, value=0.0)
+            total = st.number_input("Total Charges", min_value=0.0, value=0.0)
+        submitted = st.form_submit_button("Predict churn")
+    if not submitted:
+        return {}
+    return {
+        "Gender": gender,
+        "SeniorCitizen": senior,
+        "Partner": partner,
+        "Dependents": dependents,
+        "tenure": tenure,
+        "PhoneService": phone,
+        "MultipleLines": multiple,
+        "InternetService": internet,
+        "OnlineSecurity": security,
+        "OnlineBackup": backup,
+        "DeviceProtection": device,
+        "TechSupport": support,
+        "StreamingTV": tv,
+        "StreamingMovies": movies,
+        "Contract": contract,
+        "PaperlessBilling": paperless,
+        "PaymentMethod": payment,
+        "MonthlyCharges": monthly,
+        "TotalCharges": total,
+    }
+
+
+def main() -> None:
+    """Start the dashboard, stopping cleanly when prerequisites are absent."""
+    if st is None:
+        raise RuntimeError(
+            "Streamlit is not installed. Install requirements.txt and run: "
+            "streamlit run main.py"
+        )
+    st.set_page_config(page_title="Customer Churn Prediction", page_icon="📉", layout="wide")
+    st.title("Telecom Customer Churn Prediction")
+    st.caption("Predictions use only trusted, locally supplied model artifacts.")
+    try:
+        artifacts = load_artifacts()
+    except (FileNotFoundError, OSError, ValueError, pickle.UnpicklingError) as error:
+        st.error(str(error))
+        st.info("No prediction was run because the required artifacts are unavailable or invalid.")
+        return
+
+    choices = _render_form(artifacts)
+    if choices:
+        try:
+            predictions = predict_churn(artifacts["models"], build_input(choices, artifacts))
+        except (KeyError, ValueError, TypeError) as error:
+            st.error(f"Input could not be encoded with the supplied artifacts: {error}")
+            return
+        save_user_data(choices, Counter(predictions.values()).most_common(1)[0][0])
+        display_predictions(predictions)
+
+    if st.button("Show submitted records"):
+        records = st.session_state.get("user_data_list", [])
+        st.dataframe(pd.DataFrame(records), hide_index=True, use_container_width=True)
+
+
+if __name__ == "__main__":
+    main()
