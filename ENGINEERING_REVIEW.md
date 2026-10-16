@@ -21,7 +21,7 @@ This review deliberately does **not** invent data, model files, metrics, or a su
 - Replaced deprecated/incompatible XGBoost and AdaBoost arguments in the notebook (`use_label_encoder`, `SAMME.R`) and set explicit evaluation metrics/random states where appropriate.
 - Removed the stray `from re import X` and replaced the overwritten `LabelEncoder` loop with independent encoders.
 - Reworked `main.py` into import-safe functions (`load_artifacts`, `build_input`, `predict_churn`, form rendering) so static checks and tests can run without Streamlit or model files installed.
-- Preserved the notebook's post-drop feature order in the dashboard: 15 encoded categorical/binary features followed by scaled `MonthlyCharges`, `TotalCharges`, and `tenure` (18 columns total). `gender` remains omitted because the notebook drops it; retraining should publish an explicit schema manifest.
+- Preserved the notebook's post-drop feature order in the dashboard: `tenure` is the fourth column, followed by the service fields, and `MonthlyCharges`/`TotalCharges` are last (18 columns total). `gender` remains omitted because the notebook drops it; retraining should publish an explicit schema manifest.
 - Added context-managed file loading, input shape validation, fixed model ordering, local-only artifact loading, and deterministic majority display.
 - Added `requirements.txt`, `.gitignore`, Ruff/Pytest configuration, and tests for Python parsing, notebook hygiene, and the missing-artifact path.
 
@@ -37,10 +37,10 @@ This review deliberately does **not** invent data, model files, metrics, or a su
 - Python AST parsing and bytecode compilation passed for all Python files.
 - AST parsing passed for every code cell in the notebook; `ruff --select F821` found no undefined names there.
 - `ruff check main.py tests` passed after the refactor.
-- `pytest -q` passed: 3 tests.
+- `pytest -q` passed: 6 tests, including schema-order, strict-input, and artifact-contract regressions.
 - Notebook JSON parsing passed; code-cell outputs and execution counts are zero; the Colab `/content/` path is absent.
 - `git diff --check` passed.
-- Full notebook training and Streamlit execution were **not** run: the repository has no dataset or model artifacts, and the sandbox did not have Streamlit, XGBoost, or `nbformat` installed at audit time. Therefore this report contains no model metrics or deployment claim.
+- Full notebook training and Streamlit execution were **not** run: the repository has no dataset or model artifacts. Therefore this report contains no model metrics or deployment claim.
 
 ## Changed files
 
@@ -52,3 +52,53 @@ This review deliberately does **not** invent data, model files, metrics, or a su
 - `pyproject.toml`
 - `tests/test_repo_health.py`
 - `ENGINEERING_REVIEW.md`
+
+## Second Senior Review
+
+### Scope
+
+The second pass re-inspected every tracked file, the complete notebook source and
+metadata, Python/config/test/README files, the Git history and diff, and the
+dashboard/training contract. No dataset, trained model, encoder, scaler, secret,
+or deployment service was present, so no fabricated metric or end-to-end claim is
+made.
+
+### Newly found and fixed
+
+1. **Inference schema was incompatible with training.** The dashboard placed
+   `tenure` at the end, scaled only three columns, and passed a 3-column array to a
+   scaler fitted on the notebook's 18-column matrix. It now constructs the exact
+   notebook order (`tenure` is fourth), scales all 18 columns, and checks model and
+   scaler feature counts when artifacts are loaded.
+2. **Invalid UI values were silently coerced.** `_yes_no` previously converted any
+   unexpected value to `No`; category and numeric inputs could also fail with
+   opaque errors. Encoding is now strict, finite/non-negative numeric ranges are
+   checked, learned encoder categories drive the UI, and unsupported model classes
+   are rejected.
+3. **The notebook lacked an input schema validator.** It now checks required
+   columns, non-empty input, binary `Churn`, numeric fields, and malformed
+   `TotalCharges` before mutation. Legitimate blank `TotalCharges` values remain
+   eligible for the existing downstream `dropna` handling.
+4. **Preprocessing/model-selection workflow had avoidable defects.** Scaling now
+   happens immediately after the split and before every estimator, invalid
+   LogisticRegression `l3` combinations were removed, a compatible solver and
+   fixed random state were specified, and stacking uses explicit CV. Model ranking
+   uses validation accuracy rather than consuming the test split for selection.
+5. **Notebook state still contained stale Colab metadata.** Cell outputs,
+   execution counts, cell metadata, and notebook metadata were cleared while
+   preserving source code.
+6. **Regression coverage was too shallow.** Tests now assert the 18-feature
+   inference order, full-matrix scaling, strict input rejection, and artifact
+   feature-count validation.
+
+### Remaining risks and non-claims
+
+- The repository still intentionally has no real CSV or trusted model artifacts;
+  training, artifact export, dashboard prediction, and model quality cannot be
+  executed here.
+- Pickle loading remains executable deserialization and is restricted to trusted
+  local files by policy, not by a cryptographic signature. A signed/versioned
+  artifact manifest remains a production requirement.
+- The notebook still reports exploratory test metrics for each candidate and does
+  not implement a separately locked final test evaluation, threshold tuning,
+  calibration, confidence intervals, or subgroup/fairness analysis.

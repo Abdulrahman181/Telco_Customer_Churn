@@ -26,7 +26,7 @@ export TELCO_DATA_PATH=/absolute/path/WA_Fn-UseC_-Telco-Customer-Churn.csv
 jupyter notebook Customer_Churn_Prediction.ipynb
 ```
 
-The notebook uses a fixed, stratified train/validation/test split (`random_state=42`) and fits preprocessing after the split. It does not claim a model score until it is run with the real dataset.
+The notebook validates the input columns and target labels, uses a fixed, stratified train/validation/test split (`random_state=42`), and fits `StandardScaler` on the training partition only. It does not claim a model score until it is run with the real dataset.
 
 ## Run the dashboard
 
@@ -62,5 +62,6 @@ The tests verify Python parsing, notebook JSON/output hygiene, and the missing-a
 ## Known limitations
 
 - Model quality, calibration, threshold choice, and fairness cannot be assessed without the original dataset and a reproducible training run.
-- The dashboard mirrors the notebook's feature order, including its omission of `gender`; retraining should export artifacts with an explicit schema/version manifest before production use.
-- The current notebook reports accuracy, precision, recall, and F1 on a held-out split, but it does not provide confidence intervals, calibration, threshold tuning, or a separately locked final test protocol.
+- The dashboard mirrors the notebook's exact 18-feature order, including its omission of `gender`: `SeniorCitizen`, `Partner`, `Dependents`, `tenure`, the service fields, `Contract`, `PaperlessBilling`, `PaymentMethod`, `MonthlyCharges`, and `TotalCharges`. The scaler is applied to all 18 columns, as it is during training.
+- Model comparison is based on validation accuracy; test metrics are reported for inspection but are not used to select a production model. The notebook still does not provide confidence intervals, calibration, threshold tuning, fairness checks, or a separately locked final test protocol.
+- Retraining should export artifacts with an explicit schema/version manifest and should pin the exact training environment before production use.

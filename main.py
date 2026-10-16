@@ -40,8 +40,32 @@ MODEL_FILES = {
     "Stacking": Path("Models/Stacking.pkl"),
 }
 
-# This is the feature order used by the original training notebook after it
-# drops gender and scales the three numeric columns at the end.
+# This is the exact feature order used by the training notebook after it drops
+# ``gender``.  The notebook fits StandardScaler on the complete 18-column
+# matrix, so inference must build this order and transform all 18 columns.
+FEATURE_NAMES = (
+    "SeniorCitizen",
+    "Partner",
+    "Dependents",
+    "tenure",
+    "PhoneService",
+    "MultipleLines",
+    "InternetService",
+    "OnlineSecurity",
+    "OnlineBackup",
+    "DeviceProtection",
+    "TechSupport",
+    "StreamingTV",
+    "StreamingMovies",
+    "Contract",
+    "PaperlessBilling",
+    "PaymentMethod",
+    "MonthlyCharges",
+    "TotalCharges",
+)
+INPUT_FIELDS = set(FEATURE_NAMES) | {"Gender"}
+
+
 class ArtifactBundle(dict[str, Any]):
     """Loaded encoders, scaler, and models with a predictable mapping."""
 
@@ -66,6 +90,35 @@ def _load_pickle(path: Path) -> Any:
     """
     with path.open("rb") as handle:
         return pickle.load(handle)
+
+
+def _validate_artifact_contract(
+    encoders: dict[str, Any], scaler: Any, models: dict[str, Any]
+) -> None:
+    """Reject artifacts that cannot consume the notebook's feature schema."""
+    expected = len(FEATURE_NAMES)
+    scaler_features = getattr(scaler, "n_features_in_", expected)
+    if scaler_features != expected or not callable(getattr(scaler, "transform", None)):
+        raise ValueError(f"Scaler must transform exactly {expected} features")
+    for name, model in models.items():
+        model_features = getattr(model, "n_features_in_", expected)
+        if model_features != expected or not callable(getattr(model, "predict", None)):
+            raise ValueError(f"Model {name!r} is incompatible with the {expected}-feature schema")
+    for name in ("internet_service", "payment_method", "contract"):
+        encoder = encoders[name]
+        if not callable(getattr(encoder, "transform", None)):
+            raise ValueError(f"Encoder {name!r} does not provide transform()")
+
+
+def _encoder_values(encoder: Any) -> list[str]:
+    """Return the learned categories for a LabelEncoder or OrdinalEncoder."""
+    if hasattr(encoder, "classes_"):
+        values = encoder.classes_
+    elif hasattr(encoder, "categories_") and len(encoder.categories_) == 1:
+        values = encoder.categories_[0]
+    else:
+        raise ValueError("Categorical encoder has no single learned category list")
+    return [str(value) for value in values]
 
 
 def load_artifacts(root: Path | None = None) -> ArtifactBundle:
@@ -93,45 +146,68 @@ def load_artifacts(root: Path | None = None) -> ArtifactBundle:
         name: _load_pickle(artifact_root / relative)
         for name, relative in MODEL_FILES.items()
     }
+    _validate_artifact_contract(encoders, scaler, models)
     return ArtifactBundle(encoders=encoders, scaler=scaler, models=models)
 
 
 def _yes_no(value: str) -> int:
+    if value not in {"Yes", "No"}:
+        raise ValueError(f"Expected Yes or No, got {value!r}")
     return int(value == "Yes")
+
+
+def _encode_category(encoder: Any, value: str, field: str) -> float:
+    """Encode one categorical value using either sklearn encoder shape."""
+    try:
+        if hasattr(encoder, "classes_"):
+            encoded = encoder.transform([value])
+        else:
+            encoded = encoder.transform([[value]])
+        result = np.asarray(encoded, dtype=float).reshape(-1)
+    except (TypeError, ValueError, KeyError) as error:
+        raise ValueError(f"Unknown {field} value {value!r}") from error
+    if result.size != 1 or not np.isfinite(result[0]):
+        raise ValueError(f"Encoder for {field} returned an invalid value")
+    return float(result[0])
 
 
 def build_input(choices: dict[str, Any], artifacts: ArtifactBundle) -> np.ndarray:
     """Encode one UI record in the training feature order."""
+    missing = INPUT_FIELDS - choices.keys()
+    if missing:
+        raise ValueError(f"Missing input fields: {', '.join(sorted(missing))}")
     encoders = artifacts["encoders"]
-    # Match the notebook's post-drop column order exactly.  Gender is not in
-    # this list because the training notebook drops it before fitting.
+    # Gender is intentionally not included: the notebook drops it before fit.
     encoded = [
         _yes_no(str(choices["SeniorCitizen"])),
         _yes_no(str(choices["Partner"])),
         _yes_no(str(choices["Dependents"])),
+        choices["tenure"],
         _yes_no(str(choices["PhoneService"])),
         _yes_no(str(choices["MultipleLines"])),
-        int(encoders["internet_service"].transform([choices["InternetService"]])[0]),
+        _encode_category(
+            encoders["internet_service"], choices["InternetService"], "InternetService"
+        ),
         _yes_no(str(choices["OnlineSecurity"])),
         _yes_no(str(choices["OnlineBackup"])),
         _yes_no(str(choices["DeviceProtection"])),
         _yes_no(str(choices["TechSupport"])),
         _yes_no(str(choices["StreamingTV"])),
         _yes_no(str(choices["StreamingMovies"])),
-        int(encoders["contract"].transform([[choices["Contract"]]])[0][0]),
+        _encode_category(encoders["contract"], choices["Contract"], "Contract"),
         _yes_no(str(choices["PaperlessBilling"])),
-        int(encoders["payment_method"].transform([choices["PaymentMethod"]])[0]),
+        _encode_category(encoders["payment_method"], choices["PaymentMethod"], "PaymentMethod"),
     ]
-    # PaymentMethod is a categorical feature in the original 18-column model;
-    # keep it adjacent to the other encoded categorical values and do not treat
-    # its label as a binary value.
-    encoded[-1] = int(encoders["payment_method"].transform([choices["PaymentMethod"]])[0])
-    numeric = np.asarray(
-        [[choices["MonthlyCharges"], choices["TotalCharges"], choices["tenure"]]],
-        dtype=float,
-    )
-    scaled = artifacts["scaler"].transform(numeric)
-    return np.concatenate((np.asarray([encoded], dtype=float), scaled), axis=1)
+    encoded.extend([choices["MonthlyCharges"], choices["TotalCharges"]])
+    try:
+        raw = np.asarray([encoded], dtype=float)
+    except (TypeError, ValueError) as error:
+        raise ValueError("Numeric inputs must be finite numbers") from error
+    if raw.shape != (1, len(FEATURE_NAMES)) or not np.isfinite(raw).all():
+        raise ValueError("Numeric inputs must be finite and match the training schema")
+    if (raw[0, 3] < 0 or raw[0, 3] > 120 or raw[0, 16] < 0 or raw[0, 17] < 0):
+        raise ValueError("Tenure must be between 0 and 120; charges cannot be negative")
+    return np.asarray(artifacts["scaler"].transform(raw), dtype=float)
 
 
 def predict_churn(models: dict[str, Any], input_data: np.ndarray) -> dict[str, str]:
@@ -141,6 +217,8 @@ def predict_churn(models: dict[str, Any], input_data: np.ndarray) -> dict[str, s
     predictions: dict[str, str] = {}
     for name, model in models.items():
         prediction = int(model.predict(input_data)[0])
+        if prediction not in {0, 1}:
+            raise ValueError(f"Model {name!r} returned unsupported class {prediction!r}")
         predictions[name] = "Churn" if prediction == 1 else "Not Churn"
     return predictions
 
@@ -177,7 +255,6 @@ def _render_form(artifacts: ArtifactBundle) -> dict[str, Any]:
     with st.form("customer_attributes"):
         col1, col2, col3 = st.columns(3)
         with col1:
-            gender = st.selectbox("Gender", ["Male", "Female"])
             senior = st.selectbox("Senior Citizen", ["Yes", "No"])
             partner = st.selectbox("Partner", ["Yes", "No"])
             dependents = st.selectbox("Dependents", ["Yes", "No"])
@@ -187,7 +264,9 @@ def _render_form(artifacts: ArtifactBundle) -> dict[str, Any]:
             phone = st.selectbox("Phone Service", ["Yes", "No"])
         with col2:
             multiple = st.selectbox("Multiple Lines", ["Yes", "No"])
-            internet = st.selectbox("Internet Service", list(encoders["internet_service"].classes_))
+            internet = st.selectbox(
+                "Internet Service", _encoder_values(encoders["internet_service"])
+            )
             security = st.selectbox("Online Security", ["Yes", "No"])
             backup = st.selectbox("Online Backup", ["Yes", "No"])
             device = st.selectbox("Device Protection", ["Yes", "No"])
@@ -195,16 +274,15 @@ def _render_form(artifacts: ArtifactBundle) -> dict[str, Any]:
             tv = st.selectbox("Streaming TV", ["Yes", "No"])
         with col3:
             movies = st.selectbox("Streaming Movies", ["Yes", "No"])
-            contract = st.selectbox("Contract", ["Month-to-month", "One year", "Two year"])
+            contract = st.selectbox("Contract", _encoder_values(encoders["contract"]))
             paperless = st.selectbox("Paperless Billing", ["Yes", "No"])
-            payment = st.selectbox("Payment Method", list(encoders["payment_method"].classes_))
+            payment = st.selectbox("Payment Method", _encoder_values(encoders["payment_method"]))
             monthly = st.number_input("Monthly Charges", min_value=0.0, value=0.0)
             total = st.number_input("Total Charges", min_value=0.0, value=0.0)
         submitted = st.form_submit_button("Predict churn")
     if not submitted:
         return {}
     return {
-        "Gender": gender,
         "SeniorCitizen": senior,
         "Partner": partner,
         "Dependents": dependents,
